@@ -1,16 +1,24 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi import HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry import trace
+#from opentelemetry.sdk.resources import Resource
 from opentelemetry.trace.status import Status, StatusCode
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.propagate import extract, inject
+
 from random import randrange, random
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info(f"{__name__} started") # this will have the version in it
+
+
+#resource = Resource(attributes={"service.name": "com.github.conestogac-acsit.cdevops-microfrontend", "service.version":"3bd5163"})
+tracer = trace.get_tracer(__name__)
 
 
 app = FastAPI()
@@ -46,15 +54,18 @@ async def exception():
 
 
 @app.get("/rolldice")
-async def rolldice():
-   return {
-      "side": getRandomSide()      
-      }
+async def rolldice(request: Request):
+   ctx = extract(request.headers)
+   with tracer.start_as_current_span("rolldice", context=ctx):
+    return {
+        "side": getRandomSide()      
+        }
 
 def getRandomSide():
     return randrange(6)
 
 app.mount('/', StaticFiles(directory="./dist", html=True), name="src")
+FastAPIInstrumentor.instrument_app(app)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
