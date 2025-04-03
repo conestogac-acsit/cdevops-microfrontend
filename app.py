@@ -30,12 +30,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/exception")
-async def exception():
+
+
+@app.get("/rolldice")
+async def rolldice(request: Request):
     try:
-        raise ValueError("sadness")
+        return {
+            "side": getRandomSide()      
+        }
     except Exception as ex:
-        logger.error(f"Exception: {ex.args}", exc_info=True)
+        traceparent = request.headers.get("traceparent") or "n/a"
+        logger.error(f"Exception: {ex.args} traceparent:{traceparent}", exc_info=True)
         span = trace.get_current_span()
 
         # generate random number
@@ -44,25 +49,19 @@ async def exception():
         # record_exception converts the exception into a span event. 
         exception = IOError("Failed at " + str(seconds))
         span.record_exception(exception)
-        span.set_attributes({'est': True})
+        span.set_attributes({'est': True, 'traceparent':traceparent})
         # Update the span status to failed.
         span.set_status(Status(StatusCode.ERROR, "internal error"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Got sadness")
+            detail=f"Index error")
 
-
-
-@app.get("/rolldice")
-async def rolldice(request: Request):
-   ctx = extract(request.headers)
-   with tracer.start_as_current_span("rolldice", context=ctx):
-    return {
-        "side": getRandomSide()      
-        }
 
 def getRandomSide():
-    return randrange(6)
+    rc = randrange(7)
+    if(rc > 5):
+       raise IndexError(f"rc is out of range")
+    return rc
 
 app.mount('/', StaticFiles(directory="./dist", html=True), name="src")
 FastAPIInstrumentor.instrument_app(app)
