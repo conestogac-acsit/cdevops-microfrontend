@@ -5,7 +5,7 @@ TLDR;
 
 ```bash
 pip install -r requirements.txt
-python app.py
+bash otel.sh
 ```
 
 Then in another terminal window:

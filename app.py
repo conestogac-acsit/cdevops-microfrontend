@@ -35,8 +35,12 @@ app.add_middleware(
 @app.get("/rolldice")
 async def rolldice(request: Request):
     try:
+        rc = getRandomSide()
+        if(rc > 5):
+           raise IndexError(f"rc is out of range")
+
         return {
-            "side": getRandomSide()      
+            "side": rc
         }
     except Exception as ex:
         traceparent = request.headers.get("traceparent") or "n/a"
@@ -56,11 +60,30 @@ async def rolldice(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Index error")
 
+@app.get("/exception")
+async def exception():
+    try:
+        raise ValueError("sadness")
+    except Exception as ex:
+        logger.error(f"Exception: {ex.args}", exc_info=True)
+        span = trace.get_current_span()
+
+        # generate random number
+        seconds = random.uniform(0, 30)
+
+        # record_exception converts the exception into a span event. 
+        exception = IOError("Failed at " + str(seconds))
+        span.record_exception(exception)
+        span.set_attributes({'est': True})
+        # Update the span status to failed.
+        span.set_status(Status(StatusCode.ERROR, "internal error"))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Got sadness")
+ 
 
 def getRandomSide():
     rc = randrange(7)
-    if(rc > 5):
-       raise IndexError(f"rc is out of range")
     return rc
 
 app.mount('/', StaticFiles(directory="./dist", html=True), name="src")
