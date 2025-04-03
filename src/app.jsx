@@ -13,6 +13,12 @@ export default function Dice(){
         fetch(`${serviceUrl}rolldice`, {headers:{
             traceparent: `00-${traceID}-${parentID}-00`
         }}).then((res)=>{
+            if(res.status >= 500){
+                // server error handled here
+                res.text().then((sText)=>{
+                    alert(`server error ${res.status} ${sText}`);
+                })
+            }
             res.json().then((oRes)=>{
                 setFace(`${serviceUrl}${sides[oRes.side]}`);
             })
